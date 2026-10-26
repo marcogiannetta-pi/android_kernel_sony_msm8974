@@ -147,7 +147,8 @@
 	};
 
 	qcom,wdt@f9017000 {
-		qcom,bark-time = <12000>;
+		qcom,bark-time = <20000>;
+		qcom,pet-time = <5000>;
 	};
 
 	qcom,msm-thermal {
