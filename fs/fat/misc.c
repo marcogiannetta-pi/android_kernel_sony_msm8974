@@ -167,6 +167,13 @@ int fat_chain_add(struct inode *inode, int new_dclus, int nr_cluster)
 
 extern struct timezone sys_tz;
 
+static inline int fat_tz_offset(struct msdos_sb_info *sbi)
+{
+	return (sbi->options.tz_set ?
+	       -sbi->options.time_offset :
+	       sys_tz.tz_minuteswest) * SECS_PER_MIN;
+}
+
 /*
  * The epoch of FAT timestamp is 1980.
  *     :  bits :     value
@@ -217,7 +224,7 @@ void fat_time_fat2unix(struct msdos_sb_info *sbi, struct timespec *ts,
 		   + DAYS_DELTA) * SECS_PER_DAY;
 
 	if (!sbi->options.tz_utc)
-		second += sys_tz.tz_minuteswest * SECS_PER_MIN;
+		second += fat_tz_offset(sbi);
 
 	if (time_cs) {
 		ts->tv_sec = second + (time_cs / 100);
@@ -234,7 +241,7 @@ void fat_time_unix2fat(struct msdos_sb_info *sbi, struct timespec *ts,
 {
 	struct tm tm;
 	time_to_tm(ts->tv_sec, sbi->options.tz_utc ? 0 :
-		   -sys_tz.tz_minuteswest * 60, &tm);
+		   -fat_tz_offset(sbi), &tm);
 
 	/*  FAT can only support year between 1980 to 2107 */
 	if (tm.tm_year < 1980 - 1900) {

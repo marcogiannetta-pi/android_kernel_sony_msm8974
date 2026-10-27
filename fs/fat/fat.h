@@ -45,8 +45,10 @@ struct fat_mount_options {
 		 nocase:1,	  /* Does this need case conversion? 0=need case conversion*/
 		 usefree:1,	  /* Use free_clusters for FAT32 */
 		 tz_utc:1,	  /* Filesystem timestamps are in UTC */
+		 tz_set:1,	  /* Filesystem timestamps have explicit offset */
 		 rodir:1,	  /* allow ATTR_RO for directory */
 		 discard:1;	  /* Issue discard requests on deletions */
+	short time_offset;	  /* Offset of timestamps in minutes */
 };
 
 #define FAT_HASH_BITS	8

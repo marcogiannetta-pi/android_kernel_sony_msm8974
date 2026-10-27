@@ -936,6 +936,8 @@ static int fat_show_options(struct seq_file *m, struct dentry *root)
 		seq_puts(m, ",flush");
 	if (opts->tz_utc)
 		seq_puts(m, ",tz=UTC");
+	else if (opts->tz_set)
+		seq_printf(m, ",time_offset=%d", opts->time_offset);
 	if (opts->errors == FAT_ERRORS_CONT)
 		seq_puts(m, ",errors=continue");
 	else if (opts->errors == FAT_ERRORS_PANIC)
@@ -957,7 +959,7 @@ enum {
 	Opt_shortname_winnt, Opt_shortname_mixed, Opt_utf8_no, Opt_utf8_yes,
 	Opt_uni_xl_no, Opt_uni_xl_yes, Opt_nonumtail_no, Opt_nonumtail_yes,
 	Opt_obsolete, Opt_flush, Opt_tz_utc, Opt_rodir, Opt_err_cont,
-	Opt_err_panic, Opt_err_ro, Opt_discard, Opt_err,
+	Opt_err_panic, Opt_err_ro, Opt_discard, Opt_time_offset, Opt_err,
 };
 
 static const match_table_t fat_tokens = {
@@ -986,6 +988,7 @@ static const match_table_t fat_tokens = {
 	{Opt_err_panic, "errors=panic"},
 	{Opt_err_ro, "errors=remount-ro"},
 	{Opt_discard, "discard"},
+	{Opt_time_offset, "time_offset=%d"},
 	{Opt_obsolete, "conv=binary"},
 	{Opt_obsolete, "conv=text"},
 	{Opt_obsolete, "conv=auto"},
@@ -1066,6 +1069,8 @@ static int parse_options(struct super_block *sb, char *options, int is_vfat,
 	opts->numtail = 1;
 	opts->usefree = opts->nocase = 0;
 	opts->tz_utc = 0;
+	opts->tz_set = 0;
+	opts->time_offset = 0;
 	opts->errors = FAT_ERRORS_RO;
 	*debug = 0;
 
@@ -1158,6 +1163,14 @@ static int parse_options(struct super_block *sb, char *options, int is_vfat,
 			break;
 		case Opt_tz_utc:
 			opts->tz_utc = 1;
+			break;
+		case Opt_time_offset:
+			if (match_int(&args[0], &option))
+				return 0;
+			if (option < -12 * 60 || option > 12 * 60)
+				return 0;
+			opts->tz_set = 1;
+			opts->time_offset = option;
 			break;
 		case Opt_err_cont:
 			opts->errors = FAT_ERRORS_CONT;
