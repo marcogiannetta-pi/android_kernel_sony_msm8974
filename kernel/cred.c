@@ -136,9 +136,11 @@ static void put_cred_rcu(struct rcu_head *rcu)
 		      atomic_read(&cred->usage),
 		      read_cred_subscribers(cred));
 #else
-	if (atomic_read(&cred->usage) != 0)
-		panic("CRED: put_cred_rcu() sees %p with usage %d\n",
+	if (atomic_read(&cred->usage) != 0) {
+		pr_warn_ratelimited("CRED: put_cred_rcu() sees %p with usage %d\n",
 		      cred, atomic_read(&cred->usage));
+		return;
+	}
 #endif
 
 	security_cred_free(cred);

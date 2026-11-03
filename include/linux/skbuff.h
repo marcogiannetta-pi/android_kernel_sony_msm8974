@@ -1156,12 +1156,17 @@ static inline void __skb_unlink(struct sk_buff *skb, struct sk_buff_head *list)
 {
 	struct sk_buff *next, *prev;
 
+	if (unlikely(!skb))
+		return;
+
 	list->qlen--;
 	next	   = skb->next;
 	prev	   = skb->prev;
 	skb->next  = skb->prev = NULL;
-	next->prev = prev;
-	prev->next = next;
+	if (likely(next))
+		next->prev = prev;
+	if (likely(prev))
+		prev->next = next;
 }
 
 /**
@@ -1785,7 +1790,9 @@ static inline struct page *skb_frag_page(const skb_frag_t *frag)
  */
 static inline void __skb_frag_ref(skb_frag_t *frag)
 {
-	get_page(skb_frag_page(frag));
+	struct page *page = skb_frag_page(frag);
+	if (likely(page))
+		get_page(page);
 }
 
 /**
@@ -1808,7 +1815,9 @@ static inline void skb_frag_ref(struct sk_buff *skb, int f)
  */
 static inline void __skb_frag_unref(skb_frag_t *frag)
 {
-	put_page(skb_frag_page(frag));
+	struct page *page = skb_frag_page(frag);
+	if (likely(page))
+		put_page(page);
 }
 
 /**
@@ -2084,22 +2093,22 @@ static inline int pskb_trim_rcsum(struct sk_buff *skb, unsigned int len)
 
 #define skb_queue_walk(queue, skb) \
 		for (skb = (queue)->next;					\
-		     skb != (struct sk_buff *)(queue);				\
+		     skb && skb != (struct sk_buff *)(queue);			\
 		     skb = skb->next)
 
 #define skb_queue_walk_safe(queue, skb, tmp)					\
-		for (skb = (queue)->next, tmp = skb->next;			\
-		     skb != (struct sk_buff *)(queue);				\
-		     skb = tmp, tmp = skb->next)
+		for (skb = (queue)->next, tmp = (skb ? skb->next : NULL);	\
+		     skb && skb != (struct sk_buff *)(queue);			\
+		     skb = tmp, tmp = (skb ? skb->next : NULL))
 
 #define skb_queue_walk_from(queue, skb)						\
-		for (; skb != (struct sk_buff *)(queue);			\
+		for (; skb && skb != (struct sk_buff *)(queue);			\
 		     skb = skb->next)
 
 #define skb_queue_walk_from_safe(queue, skb, tmp)				\
-		for (tmp = skb->next;						\
-		     skb != (struct sk_buff *)(queue);				\
-		     skb = tmp, tmp = skb->next)
+		for (tmp = (skb ? skb->next : NULL);				\
+		     skb && skb != (struct sk_buff *)(queue);			\
+		     skb = tmp, tmp = (skb ? skb->next : NULL))
 
 #define skb_queue_reverse_walk(queue, skb) \
 		for (skb = (queue)->prev;					\

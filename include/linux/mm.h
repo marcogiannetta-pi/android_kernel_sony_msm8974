@@ -412,6 +412,8 @@ extern bool __get_page_tail(struct page *page);
 
 static inline void get_page(struct page *page)
 {
+	if (unlikely(!page))
+		return;
 	if (unlikely(PageTail(page)))
 		if (likely(__get_page_tail(page)))
 			return;

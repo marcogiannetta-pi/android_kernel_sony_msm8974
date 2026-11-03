@@ -1435,7 +1435,12 @@ void __init sk_init(void)
 void sock_wfree(struct sk_buff *skb)
 {
 	struct sock *sk = skb->sk;
-	unsigned int len = skb->truesize;
+	unsigned int len;
+
+	if (unlikely(!sk))
+		return;
+
+	len = skb->truesize;
 
 	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE)) {
 		/*

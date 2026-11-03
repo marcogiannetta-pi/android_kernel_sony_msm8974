@@ -386,7 +386,8 @@ static void skb_release_data(struct sk_buff *skb)
 			       &skb_shinfo(skb)->dataref)) {
 		if (skb_shinfo(skb)->nr_frags) {
 			int i;
-			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+			int n = min_t(int, skb_shinfo(skb)->nr_frags, MAX_SKB_FRAGS);
+			for (i = 0; i < n; i++)
 				skb_frag_unref(skb, i);
 		}
 
@@ -398,7 +399,7 @@ static void skb_release_data(struct sk_buff *skb)
 			struct ubuf_info *uarg;
 
 			uarg = skb_shinfo(skb)->destructor_arg;
-			if (uarg->callback)
+			if (uarg && uarg->callback)
 				uarg->callback(uarg);
 		}
 

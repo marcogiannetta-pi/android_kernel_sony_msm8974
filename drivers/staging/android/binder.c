@@ -1013,6 +1013,8 @@ static struct binder_node *binder_get_node(struct binder_proc *proc,
 	struct binder_node *node;
 
 	while (n) {
+		if (unlikely((unsigned long)n < PAGE_OFFSET))
+			return NULL;
 		node = rb_entry(n, struct binder_node, rb_node);
 
 		if (ptr < node->ptr)
@@ -1037,6 +1039,12 @@ static struct binder_node *binder_new_node(struct binder_proc *proc,
 	__u32 flags = fp ? fp->flags : 0;
 
 	while (*p) {
+		if (unlikely((unsigned long)*p < PAGE_OFFSET)) {
+			proc->nodes = RB_ROOT;
+			parent = NULL;
+			p = &proc->nodes.rb_node;
+			break;
+		}
 		parent = *p;
 		node = rb_entry(parent, struct binder_node, rb_node);
 
@@ -1159,6 +1167,8 @@ static struct binder_ref *binder_get_ref(struct binder_proc *proc,
 	struct binder_ref *ref;
 
 	while (n) {
+		if (unlikely((unsigned long)n < PAGE_OFFSET))
+			return NULL;
 		ref = rb_entry(n, struct binder_ref, rb_node_desc);
 
 		if (desc < ref->desc) {
@@ -1185,6 +1195,12 @@ static struct binder_ref *binder_get_ref_for_node(struct binder_proc *proc,
 	struct binder_context *context = proc->context;
 
 	while (*p) {
+		if (unlikely((unsigned long)*p < PAGE_OFFSET)) {
+			proc->refs_by_node = RB_ROOT;
+			parent = NULL;
+			p = &proc->refs_by_node.rb_node;
+			break;
+		}
 		parent = *p;
 		ref = rb_entry(parent, struct binder_ref, rb_node_node);
 
@@ -2926,11 +2942,23 @@ retry:
 		struct binder_transaction *t = NULL;
 		size_t trsize = sizeof(*trd);
 
-		if (!list_empty(&thread->todo))
+		if (!list_empty(&thread->todo)) {
 			w = list_first_entry(&thread->todo, struct binder_work, entry);
-		else if (!list_empty(&proc->todo) && wait_for_proc_work)
+			if ((unsigned long)w < PAGE_OFFSET) {
+				pr_err("binder: %d:%d invalid thread work %p\n",
+				       proc->pid, thread->pid, w);
+				INIT_LIST_HEAD(&thread->todo);
+				break;
+			}
+		} else if (!list_empty(&proc->todo) && wait_for_proc_work) {
 			w = list_first_entry(&proc->todo, struct binder_work, entry);
-		else {
+			if ((unsigned long)w < PAGE_OFFSET) {
+				pr_err("binder: %d:%d invalid proc work %p\n",
+				       proc->pid, thread->pid, w);
+				INIT_LIST_HEAD(&proc->todo);
+				break;
+			}
+		} else {
 			if (ptr - buffer == 4 && !(thread->looper & BINDER_LOOPER_STATE_NEED_RETURN)) /* no data added */
 				goto retry;
 			break;
@@ -3222,6 +3250,14 @@ static struct binder_thread *binder_get_thread(struct binder_proc *proc)
 	struct rb_node **p = &proc->threads.rb_node;
 
 	while (*p) {
+		if (unlikely((unsigned long)*p < PAGE_OFFSET)) {
+			pr_err("binder: corrupt thread rb_node %p in proc %d, resetting\n",
+				*p, proc->pid);
+			proc->threads = RB_ROOT;
+			parent = NULL;
+			p = &proc->threads.rb_node;
+			break;
+		}
 		parent = *p;
 		thread = rb_entry(parent, struct binder_thread, rb_node);
 
@@ -3256,6 +3292,9 @@ static int binder_free_thread(struct binder_proc *proc,
 	struct binder_transaction *t;
 	struct binder_transaction *send_reply = NULL;
 	int active_transactions = 0;
+
+	if (unlikely((unsigned long)thread < PAGE_OFFSET))
+		return 0;
 
 	rb_erase(&thread->rb_node, &proc->threads);
 	t = thread->transaction_stack;

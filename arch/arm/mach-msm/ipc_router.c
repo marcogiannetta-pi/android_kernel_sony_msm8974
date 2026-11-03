@@ -293,6 +293,9 @@ struct rr_packet *clone_pkt(struct rr_packet *pkt)
 	struct sk_buff *temp_skb, *cloned_skb;
 	struct sk_buff_head *pkt_fragment_q;
 
+	if (!pkt || !pkt->pkt_fragment_q)
+		return NULL;
+
 	cloned_pkt = kzalloc(sizeof(struct rr_packet), GFP_KERNEL);
 	if (!cloned_pkt) {
 		pr_err("%s: failure\n", __func__);
@@ -310,6 +313,10 @@ struct rr_packet *clone_pkt(struct rr_packet *pkt)
 	skb_queue_head_init(pkt_fragment_q);
 
 	skb_queue_walk(pkt->pkt_fragment_q, temp_skb) {
+		if (!temp_skb || !skb_end_pointer(temp_skb)) {
+			pr_err("%s: invalid temp_skb in fragment queue\n", __func__);
+			goto fail_clone;
+		}
 		cloned_skb = skb_clone(temp_skb, GFP_KERNEL);
 		if (!cloned_skb)
 			goto fail_clone;

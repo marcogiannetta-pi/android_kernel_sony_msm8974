@@ -251,8 +251,10 @@ static void smd_xprt_read_data(struct work_struct *work)
 	spin_lock_irqsave(&smd_xprtp->ss_reset_lock, flags);
 	if (smd_xprtp->ss_reset) {
 		spin_unlock_irqrestore(&smd_xprtp->ss_reset_lock, flags);
-		if (smd_xprtp->in_pkt)
+		if (smd_xprtp->in_pkt) {
 			release_pkt(smd_xprtp->in_pkt);
+			smd_xprtp->in_pkt = NULL;
+		}
 		smd_xprtp->is_partial_in_pkt = 0;
 		pr_err("%s: %s channel reset\n",
 			__func__, smd_xprtp->xprt.name);
@@ -317,6 +319,7 @@ static void smd_xprt_read_data(struct work_struct *work)
 				__func__, smd_xprtp->xprt.name);
 			kfree_skb(ipc_rtr_pkt);
 			release_pkt(smd_xprtp->in_pkt);
+			smd_xprtp->in_pkt = NULL;
 			smd_xprtp->is_partial_in_pkt = 0;
 			return;
 		}
@@ -330,9 +333,12 @@ static void smd_xprt_read_data(struct work_struct *work)
 		if (!smd_xprtp->is_partial_in_pkt) {
 			D("%s: Packet size read %d\n",
 			  __func__, smd_xprtp->in_pkt->length);
-			msm_ipc_router_xprt_notify(&smd_xprtp->xprt,
-						IPC_ROUTER_XPRT_EVENT_DATA,
-						(void *)smd_xprtp->in_pkt);
+			if (smd_xprtp->in_pkt->pkt_fragment_q &&
+			    !skb_queue_empty(smd_xprtp->in_pkt->pkt_fragment_q)) {
+				msm_ipc_router_xprt_notify(&smd_xprtp->xprt,
+							IPC_ROUTER_XPRT_EVENT_DATA,
+							(void *)smd_xprtp->in_pkt);
+			}
 			release_pkt(smd_xprtp->in_pkt);
 			smd_xprtp->in_pkt = NULL;
 		}

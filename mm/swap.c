@@ -187,6 +187,8 @@ out_put_single:
 
 void put_page(struct page *page)
 {
+	if (unlikely(!page))
+		return;
 	if (unlikely(PageCompound(page)))
 		put_compound_page(page);
 	else if (put_page_testzero(page))

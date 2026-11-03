@@ -204,27 +204,40 @@ int ion_heap_high_order_page_zero(struct page *page, int order)
 
 int ion_heap_buffer_zero(struct ion_buffer *buffer)
 {
-	struct sg_table *table = buffer->sg_table;
+	struct sg_table *table;
 	struct scatterlist *sg;
-	int i, j, ret = 0, npages = 0;
+	int i, j, ret = 0, npages = 0, max_pages;
 	struct pages_mem pages_mem;
 
+	if (!buffer || !buffer->sg_table)
+		return 0;
+
+	table = buffer->sg_table;
+	if (!table->sgl || !table->nents)
+		return 0;
+
 	pages_mem.size = PAGE_ALIGN(buffer->size);
+	if (!pages_mem.size)
+		return 0;
 
 	if (ion_heap_alloc_pages_mem(&pages_mem))
 		return -ENOMEM;
 
+	max_pages = pages_mem.size >> PAGE_SHIFT;
+
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
-		unsigned long len = sg_dma_len(sg);
+		unsigned long len = sg->length;
 
-		for (j = 0; j < len / PAGE_SIZE; j++)
+		for (j = 0; j < len / PAGE_SIZE && npages < max_pages; j++)
 			pages_mem.pages[npages++] = page + j;
 	}
 
-	ret = ion_heap_pages_zero(pages_mem.pages, npages);
-	dma_sync_sg_for_device(NULL, table->sgl, table->nents,
-					DMA_BIDIRECTIONAL);
+	if (npages > 0) {
+		ret = ion_heap_pages_zero(pages_mem.pages, npages);
+		dma_sync_sg_for_device(NULL, table->sgl, table->nents,
+						DMA_BIDIRECTIONAL);
+	}
 	ion_heap_free_pages_mem(&pages_mem);
 	return ret;
 }

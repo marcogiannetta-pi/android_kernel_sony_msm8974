@@ -669,8 +669,8 @@ static int verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 		goto bad;
 	}
 
-	if (argc != 10) {
-		ti->error = "Invalid argument count: exactly 10 arguments required";
+	if (argc < 10) {
+		ti->error = "Invalid argument count: at least 10 arguments required";
 		r = -EINVAL;
 		goto bad;
 	}

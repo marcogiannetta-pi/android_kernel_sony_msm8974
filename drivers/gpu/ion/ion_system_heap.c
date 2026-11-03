@@ -333,12 +333,15 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 	LIST_HEAD(pages);
 	int i;
 
+	if (!table || !table->sgl)
+		return;
+
 	if (!(buffer->flags & ION_FLAG_FREED_FROM_SHRINKER))
 		ion_heap_buffer_zero(buffer);
 
 	for_each_sg(table->sgl, sg, table->nents, i)
 		free_buffer_page(sys_heap, buffer, sg_page(sg),
-				get_order(sg_dma_len(sg)));
+				get_order(sg->length));
 	sg_free_table(table);
 	kfree(table);
 }
